@@ -1,0 +1,5 @@
+sudo singularity build composer-train.sif docker-daemon://composer:latest
+
+python train.py --model_name llama --run_name icl-run-10 --eval_interval 6000ba --learning_rate 1e-4 --batch_size 8 --context_window 4096 --datafolder data-generated-icl
+
+python eval.py --checkpoint_path path/to/checkpoint --jsonl_files file1.jsonl file2.jsonl --output_dir path/to/output

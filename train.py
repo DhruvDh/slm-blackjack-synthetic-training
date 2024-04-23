@@ -1,0 +1,204 @@
+import os
+import torch
+from torch.utils.data import DataLoader
+from multiprocessing import cpu_count
+from transformers import PreTrainedTokenizerFast, DataCollatorForLanguageModeling
+from datasets import load_dataset
+import datasets
+from composer.utils import reproducibility
+from composer import Trainer
+from composer.core import Evaluator
+from composer.loggers import FileLogger, TensorboardLogger, NeptuneLogger
+from composer import Callback, Event, Logger, State
+import schedulefree
+from model import create_model, save_checkpoint_as_hf_model
+
+reproducibility.configure_deterministic_mode()
+reproducibility.seed_all(42)
+
+
+def create_sliding_windows(tokenizer, context_window=1024):
+    def create_sliding_windows_inner(examples):
+        input_ids = []
+        labels = []
+
+        for text in examples["text"]:
+            encoded_text = tokenizer.encode(text)
+
+            for i in range(len(encoded_text) - context_window):
+                input_ids.append(encoded_text[i : i + context_window])
+                labels.append(encoded_text[i + context_window])
+
+        return {"input_ids": input_ids, "labels": labels}
+
+    return create_sliding_windows_inner
+
+
+class CheckpointConverter(Callback):
+    def __init__(self, run_name):
+        self.run_name = run_name
+
+    def run_event(self, event: Event, state: State, logger: Logger):
+        if (
+            event == Event.BATCH_CHECKPOINT
+            or event == Event.EPOCH_CHECKPOINT
+            or event == Event.ITERATION_CHECKPOINT
+        ):
+            latest_checkpoint = state.get_checkpoint_filename()
+            if latest_checkpoint is not None:
+                save_checkpoint_as_hf_model(latest_checkpoint, self.run_name)
+
+
+def train(
+    run_name,
+    eval_interval,
+    learning_rate,
+    batch_size,
+    context_window,
+    datafolder,
+):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    tokenizer_file = f"{datafolder}/overall-tokenizer.json"
+    tokenizer = PreTrainedTokenizerFast.from_pretrained(
+        tokenizer_file, padding_side="left"
+    )
+
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer, mlm=False, pad_to_multiple_of=context_window
+    )
+
+    dataset = load_dataset(
+        "text",
+        data_files={
+            "train": [f"{datafolder}/train/*.txt"],
+            "eval": [f"{datafolder}/eval/*.txt"],
+        },
+        sample_by="document",
+        keep_linebreaks=True,
+        cache_dir=f"{datafolder}/.cache",
+    ).map(
+        create_sliding_windows(
+            tokenizer=tokenizer,
+            context_window=context_window,
+        ),
+        batched=True,
+        batch_size=1,
+        num_proc=1,
+        remove_columns=["text"],
+    )
+
+    train_dataloader = DataLoader(
+        dataset["train"],
+        shuffle=True,
+        batch_size=batch_size,
+        pin_memory=False,
+        collate_fn=data_collator,
+        prefetch_factor=int(batch_size / 8),
+        num_workers=cpu_count(),
+    )
+
+    eval_dataloader = DataLoader(
+        dataset["eval"],
+        shuffle=False,
+        batch_size=batch_size * 2,
+        pin_memory=False,
+        collate_fn=data_collator,
+        prefetch_factor=int(batch_size / 8),
+        num_workers=cpu_count(),
+    )
+
+    ppl_eval = Evaluator(
+        label="ppl_eval",
+        dataloader=eval_dataloader,
+        metric_names=["LanguagePerplexity"],
+    )
+
+    neptune_logger = NeptuneLogger(
+        source_files="*.py",
+        upload_artifacts=True,
+        dependencies="infer",
+        mode="offline",
+        project="blackjack-synthetic",
+        name=run_name,
+        log_checkpoints=True,
+        log_folder=f"checkpoints/{run_name}_neptune_logs",
+    )
+
+    model = create_model(tokenizer, context_window, device)
+    optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=learning_rate)
+
+    torch.distributed.init_process_group()
+
+    trainer = Trainer(
+        model=model,
+        optimizers=optimizer,
+        train_dataloader=train_dataloader,
+        eval_dataloader=[ppl_eval],
+        eval_interval=eval_interval,
+        max_duration="1ep",
+        save_folder=f"checkpoints/{run_name}",
+        save_interval=eval_interval,
+        save_overwrite=False,
+        device_train_microbatch_size="auto",
+        device="gpu",
+        run_name=run_name,
+        autoresume=True,
+        precision="amp_fp16",
+        console_log_interval=eval_interval,
+        callbacks=[CheckpointConverter(run_name)],
+        loggers=[
+            FileLogger(f"checkpoints/{run_name}_logs.txt"),
+            TensorboardLogger(),
+            neptune_logger,
+        ],
+    )
+
+    trainer.fit()
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Train a language model.")
+    parser.add_argument(
+        "--run_name", type=str, required=True, help="The name of the training run."
+    )
+    parser.add_argument(
+        "--eval_interval",
+        type=str,
+        required=True,
+        help="The evaluation interval, e.g., '6000ba' for every 6000 batches.",
+    )
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        required=True,
+        help="The learning rate for the optimizer.",
+    )
+    parser.add_argument(
+        "--batch_size", type=int, required=True, help="The batch size for training."
+    )
+    parser.add_argument(
+        "--context_window",
+        type=int,
+        required=True,
+        help="The context window size for the sliding window approach.",
+    )
+    parser.add_argument(
+        "--datafolder",
+        type=str,
+        required=True,
+        help="The path to the data folder containing the training and evaluation data.",
+    )
+
+    args = parser.parse_args()
+
+    train(
+        args.run_name,
+        args.eval_interval,
+        args.learning_rate,
+        args.batch_size,
+        args.context_window,
+        args.datafolder,
+    )
