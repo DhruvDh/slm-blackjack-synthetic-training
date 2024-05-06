@@ -161,3 +161,6 @@ cython_debug/
 
 Dockerfile
 *.sif
+checkpoints
+data-final
+checkpoints.zip

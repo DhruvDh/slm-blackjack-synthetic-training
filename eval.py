@@ -7,7 +7,7 @@ from transformers import PreTrainedTokenizerFast
 from datasets import load_dataset
 from collections import defaultdict
 from model import load_pretrained_model
-from neptune.new.integrations.pytorch import NeptuneLogger
+import matplotlib.pyplot as plt
 
 
 def icl_tokenize(tokenizer, context_window=4096):
@@ -51,11 +51,9 @@ def icl_collate_fn(tokenizer):
 def evaluate(
     checkpoint_path, jsonl_file, output_dir, context_window=4096, batch_size=16
 ):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
 
-    tokenizer_file = os.path.join(
-        os.path.dirname(checkpoint_path), "overall-tokenizer.json"
-    )
+    tokenizer_file = checkpoint_path
     tokenizer = PreTrainedTokenizerFast.from_pretrained(
         tokenizer_file, max_len=context_window, padding_side="right", truncation=True
     )
@@ -76,14 +74,7 @@ def evaluate(
     )
 
     model = load_pretrained_model(checkpoint_path, device)
-    run_name = checkpoint_path.split("/")[-1].replace(".pt", "")
-    neptune_logger = NeptuneLogger(
-        mode="offline",
-        project="blackjack-synthetic",
-        name=run_name,
-        log_checkpoints=True,
-        log_folder=f"checkpoints/{run_name}_neptune_logs",
-    )
+
 
     space_token_id = tokenizer.convert_tokens_to_ids(" ")
     star_token_id = tokenizer.convert_tokens_to_ids("*")
@@ -93,6 +84,7 @@ def evaluate(
     correct_predictions = 0
     total_predictions = 0
     star_differences = []
+    stats = {}
 
     for data in tqdm(dataloader):
         generated_token_ids = []
@@ -138,15 +130,13 @@ def evaluate(
     for token_id, count in stop_token_counts.items():
         percentage = count / total_predictions * 100
         print(f"Stopped at token ID {token_id}: {percentage:.2f}%")
-        neptune_logger.experiment[f"eval/stop_token_counts/{token_id}"] = percentage
+        stats[f"stop_token_counts/{token_id}"] = percentage
 
     # Compute generated star length statistics
     for star_length, count in generated_star_counts.items():
         percentage = count / total_predictions * 100
         print(f"Generated {star_length} stars: {percentage:.2f}% of the time")
-        neptune_logger.experiment[f"eval/generated_star_counts/{star_length}"] = (
-            percentage
-        )
+        stats[f"generated_star_counts/{star_length}"] = percentage
 
     # Compute accuracy and mean star difference
     accuracy = correct_predictions / total_predictions
@@ -155,21 +145,53 @@ def evaluate(
     print(f"Accuracy: {accuracy:.4f}")
     print(f"Mean Star Difference: {mean_star_difference:.2f}")
 
-    # Log evaluation metrics to Neptune
-    neptune_logger.experiment["eval/accuracy"] = accuracy
-    neptune_logger.experiment["eval/mean_star_difference"] = mean_star_difference
+    stats["accuracy"] = accuracy
+    stats["mean_star_difference"] = mean_star_difference
+
+
+    # create output directory if it does not exist
+    os.makedirs(output_dir, exist_ok=True)
+    last_checkpoint_folder = os.path.basename(checkpoint_path)
+    os.makedirs(f"{output_dir}/{last_checkpoint_folder}", exist_ok=True)
+    output_dir = os.path.join(output_dir, last_checkpoint_folder)
 
     # Save evaluation results to a CSV file
     csv_file = os.path.join(
-        output_dir, f"eval_results_{os.path.basename(jsonl_file)}.csv"
+        output_dir,
+        f"eval_results_{os.path.basename(jsonl_file.replace('.jsonl', ''))}.csv",
     )
+
     with open(csv_file, "w") as f:
         f.write("metric,value\n")
-        f.write(f"accuracy,{accuracy:.4f}\n")
-        f.write(f"mean_star_difference,{mean_star_difference:.2f}\n")
+        for metric, value in stats.items():
+            f.write(f"{metric},{value}\n")
 
-    # Stop logging
-    neptune_logger.stop()
+
+    # Create matplotlib figures for stop token counts and generated star counts
+    fig_stop_tokens = plt.figure(figsize=(7, 5))
+    plt.bar(stop_token_counts.keys(), stop_token_counts.values())
+    plt.xlabel("Token ID")
+    plt.ylabel("Count")
+    plt.title("Stop Token Counts")
+
+    fig_generated_stars = plt.figure(figsize=(7, 5))
+    plt.bar(generated_star_counts.keys(), generated_star_counts.values())
+    plt.xlabel("Number of Stars")
+    plt.ylabel("Count")
+    plt.title("Generated Star Counts")
+
+    # save figures to output directory
+    fig_stop_tokens_file = os.path.join(
+        output_dir,
+        f"stop_token_counts_{os.path.basename(jsonl_file.replace('.jsonl', ''))}.png",
+    )
+    fig_generated_stars_file = os.path.join(
+        output_dir,
+        f"generated_star_counts_{os.path.basename(jsonl_file.replace('.jsonl', ''))}.png",
+    )
+
+    fig_stop_tokens.savefig(fig_stop_tokens_file)
+    fig_generated_stars.savefig(fig_generated_stars_file)
 
 
 if __name__ == "__main__":

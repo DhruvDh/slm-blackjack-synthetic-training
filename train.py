@@ -44,9 +44,14 @@ class CheckpointConverter(Callback):
             or event == Event.EPOCH_CHECKPOINT
             or event == Event.ITERATION_CHECKPOINT
         ):
-            latest_checkpoint = state.get_checkpoint_filename()
-            if latest_checkpoint is not None:
-                save_checkpoint_as_hf_model(latest_checkpoint, self.run_name)
+            for checkpoint_path in os.listdir(f"checkpoints/{self.run_name}"):
+                if checkpoint_path.endswith(".pt"):
+                    hf_model_path = f"checkpoints/{self.run_name}/hf-{checkpoint_path.replace('.pt', '')}"
+                    if not os.path.exists(hf_model_path):
+                        save_checkpoint_as_hf_model(
+                            f"checkpoints/{self.run_name}/{checkpoint_path}",
+                            hf_model_path,
+                        )
 
 
 def train(
@@ -101,7 +106,7 @@ def train(
     eval_dataloader = DataLoader(
         dataset["eval"],
         shuffle=False,
-        batch_size=batch_size * 2,
+        batch_size=batch_size,
         pin_memory=False,
         collate_fn=data_collator,
         prefetch_factor=int(batch_size / 8),
@@ -114,16 +119,15 @@ def train(
         metric_names=["LanguagePerplexity"],
     )
 
-    neptune_logger = NeptuneLogger(
-        source_files="*.py",
-        upload_artifacts=True,
-        dependencies="infer",
-        mode="offline",
-        project="blackjack-synthetic",
-        name=run_name,
-        log_checkpoints=True,
-        log_folder=f"checkpoints/{run_name}_neptune_logs",
-    )
+    # neptune_logger = NeptuneLogger(
+    #     source_files="*.py",
+    #     upload_artifacts=True,
+    #     dependencies="infer",
+    #     mode="async",
+    #     project="blackjack-synthetic",
+    #     name=run_name,
+    #     with_id="FIN-1",
+    # )
 
     model = create_model(tokenizer, context_window, device)
     optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=learning_rate)
@@ -146,18 +150,28 @@ def train(
         autoresume=True,
         precision="amp_fp16",
         console_log_interval=eval_interval,
-        callbacks=[CheckpointConverter(run_name)],
+        # callbacks=[CheckpointConverter(run_name)],
         loggers=[
             FileLogger(f"checkpoints/{run_name}_logs.txt"),
             TensorboardLogger(),
-            neptune_logger,
+            # neptune_logger,
         ],
     )
 
     trainer.fit()
+    trainer.close()
 
 
 if __name__ == "__main__":
+    os.environ["RANK"] = "0"
+    os.environ["LOCAL_RANK"] = "0"
+    os.environ["NODE_RANK"] = "0"
+    os.environ["WORLD_SIZE"] = "1"
+    os.environ["LOCAL_WORLD_SIZE"] = "1"
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "29500"
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
     import argparse
 
     parser = argparse.ArgumentParser(description="Train a language model.")
