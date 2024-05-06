@@ -88,7 +88,8 @@ def train(
         sample_by="document",
         keep_linebreaks=True,
         cache_dir=f"{datafolder}/.cache",
-    ).map(
+    )
+    train_dataset = dataset["train"].map(
         create_sliding_windows(
             tokenizer=tokenizer,
             context_window=context_window,
@@ -98,9 +99,21 @@ def train(
         num_proc=1,
         remove_columns=["text"],
     )
+    print(train_dataset)
+    eval_dataset = dataset["eval"].map(
+        create_sliding_windows(
+            tokenizer=tokenizer,
+            context_window=context_window,
+        ),
+        batched=True,
+        batch_size=1,
+        num_proc=1,
+        remove_columns=["text"],
+    )
+    print(eval_dataset)
 
     train_dataloader = DataLoader(
-        dataset["train"],
+        train_dataset,
         shuffle=True,
         batch_size=batch_size,
         pin_memory=False,
@@ -110,7 +123,7 @@ def train(
     )
 
     eval_dataloader = DataLoader(
-        dataset["eval"],
+        eval_dataset,
         shuffle=False,
         batch_size=batch_size,
         pin_memory=False,
@@ -210,4 +223,3 @@ if __name__ == "__main__":
         args.context_window,
         args.datafolder,
     )
-
