@@ -4,11 +4,10 @@ from torch.utils.data import DataLoader
 from multiprocessing import cpu_count
 from transformers import PreTrainedTokenizerFast, DataCollatorForLanguageModeling
 from datasets import load_dataset
-import datasets
 from composer.utils import reproducibility
 from composer import Trainer
 from composer.core import Evaluator
-from composer.loggers import FileLogger, TensorboardLogger, NeptuneLogger
+from composer.loggers import FileLogger, TensorboardLogger
 from composer import Callback, Event, Logger, State
 import schedulefree
 from model import create_model, save_checkpoint_as_hf_model
@@ -97,8 +96,8 @@ def train(
             context_window=context_window,
         ),
         batched=True,
-        batch_size=1,
-        num_proc=1,
+        batch_size=2,
+        num_proc=cpu_count(),
         remove_columns=["text"],
     )
     print(eval_dataset)
@@ -109,8 +108,8 @@ def train(
             context_window=context_window,
         ),
         batched=True,
-        batch_size=1,
-        num_proc=1,
+        batch_size=2,
+        num_proc=cpu_count(),
         remove_columns=["text"],
     )
     print(train_dataset)
@@ -150,7 +149,7 @@ def train(
         train_dataloader=train_dataloader,
         eval_dataloader=[ppl_eval],
         eval_interval=eval_interval,
-        max_duration="1ep",
+        max_duration="42000ba",
         save_folder=f"checkpoints/{run_name}",
         save_interval=eval_interval,
         save_overwrite=False,
@@ -158,7 +157,7 @@ def train(
         device="gpu",
         run_name=run_name,
         autoresume=True,
-        precision="amp_fp16",
+        precision="amp_bf16",
         console_log_interval=eval_interval,
         callbacks=[CheckpointConverter(run_name)],
         loggers=[
@@ -182,6 +181,7 @@ if __name__ == "__main__":
     # os.environ["TOKENIZERS_PARALLELISM"] = "false"
     # torch.distributed.init_process_group()
 
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
     import argparse
 
     parser = argparse.ArgumentParser(description="Train a language model.")
