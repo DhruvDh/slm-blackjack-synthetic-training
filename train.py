@@ -17,7 +17,7 @@ reproducibility.configure_deterministic_mode()
 reproducibility.seed_all(42)
 
 
-def create_sliding_windows(tokenizer, context_window=1024):
+def create_sliding_windows(tokenizer, context_window=8192):
     def create_sliding_windows_inner(examples):
         input_ids = []
         labels = []
@@ -37,6 +37,7 @@ def create_sliding_windows(tokenizer, context_window=1024):
 class CheckpointConverter(Callback):
     def __init__(self, run_name):
         self.run_name = run_name
+        self.converted_checkpoints = {}
 
     def run_event(self, event: Event, state: State, logger: Logger):
         if (
@@ -47,11 +48,15 @@ class CheckpointConverter(Callback):
             for checkpoint_path in os.listdir(f"checkpoints/{self.run_name}"):
                 if checkpoint_path.endswith(".pt"):
                     hf_model_path = f"checkpoints/{self.run_name}/hf-{checkpoint_path.replace('.pt', '')}"
-                    if not os.path.exists(hf_model_path):
+                    if (
+                        checkpoint_path not in self.converted_checkpoints
+                        or not os.path.exists(hf_model_path)
+                    ):
                         save_checkpoint_as_hf_model(
                             f"checkpoints/{self.run_name}/{checkpoint_path}",
                             hf_model_path,
                         )
+                        self.converted_checkpoints[checkpoint_path] = True
 
 
 def train(
@@ -63,6 +68,7 @@ def train(
     datafolder,
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
     tokenizer_file = f"{datafolder}/overall-tokenizer.json"
     tokenizer = PreTrainedTokenizerFast.from_pretrained(
@@ -119,20 +125,8 @@ def train(
         metric_names=["LanguagePerplexity"],
     )
 
-    # neptune_logger = NeptuneLogger(
-    #     source_files="*.py",
-    #     upload_artifacts=True,
-    #     dependencies="infer",
-    #     mode="async",
-    #     project="blackjack-synthetic",
-    #     name=run_name,
-    #     with_id="FIN-1",
-    # )
-
     model = create_model(tokenizer, context_window, device)
     optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=learning_rate)
-
-    torch.distributed.init_process_group()
 
     trainer = Trainer(
         model=model,
@@ -150,11 +144,10 @@ def train(
         autoresume=True,
         precision="amp_fp16",
         console_log_interval=eval_interval,
-        # callbacks=[CheckpointConverter(run_name)],
+        callbacks=[CheckpointConverter(run_name)],
         loggers=[
             FileLogger(f"checkpoints/{run_name}_logs.txt"),
             TensorboardLogger(),
-            # neptune_logger,
         ],
     )
 
@@ -163,14 +156,15 @@ def train(
 
 
 if __name__ == "__main__":
-    os.environ["RANK"] = "0"
-    os.environ["LOCAL_RANK"] = "0"
-    os.environ["NODE_RANK"] = "0"
-    os.environ["WORLD_SIZE"] = "1"
-    os.environ["LOCAL_WORLD_SIZE"] = "1"
-    os.environ["MASTER_ADDR"] = "127.0.0.1"
-    os.environ["MASTER_PORT"] = "29500"
-    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    # os.environ["RANK"] = "0"
+    # os.environ["LOCAL_RANK"] = "0"
+    # os.environ["NODE_RANK"] = "0"
+    # os.environ["WORLD_SIZE"] = "1"
+    # os.environ["LOCAL_WORLD_SIZE"] = "1"
+    # os.environ["MASTER_ADDR"] = "127.0.0.1"
+    # os.environ["MASTER_PORT"] = "29500"
+    # os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    # torch.distributed.init_process_group()
 
     import argparse
 
@@ -216,3 +210,4 @@ if __name__ == "__main__":
         args.context_window,
         args.datafolder,
     )
+
