@@ -164,3 +164,4 @@ Dockerfile
 checkpoints
 data-final
 checkpoints.zip
+tensorboard_logs
