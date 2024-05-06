@@ -117,7 +117,7 @@ def train(
     train_sampler = dist.get_sampler(train_dataset, shuffle=True)
     train_dataloader = DataLoader(
         train_dataset,
-        shuffle=True,
+        # shuffle=True,
         batch_size=batch_size,
         pin_memory=True,
         collate_fn=data_collator,
@@ -129,7 +129,7 @@ def train(
     eval_sampler = dist.get_sampler(eval_dataset, shuffle=False)
     eval_dataloader = DataLoader(
         eval_dataset,
-        shuffle=False,
+        # shuffle=False,
         batch_size=batch_size,
         pin_memory=True,
         collate_fn=data_collator,
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     # os.environ["MASTER_ADDR"] = "127.0.0.1"
     # os.environ["MASTER_PORT"] = "29500"
     # os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    # torch.distributed.init_process_group()
+    torch.distributed.init_process_group()
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     import argparse
