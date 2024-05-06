@@ -1,11 +1,10 @@
 import os
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
 from multiprocessing import cpu_count
 from transformers import PreTrainedTokenizerFast, DataCollatorForLanguageModeling
 from datasets import load_dataset
-from composer.utils import reproducibility
+from composer.utils import reproducibility, dist
 from composer import Trainer
 from composer.core import Evaluator
 from composer.loggers import FileLogger, TensorboardLogger
@@ -115,26 +114,28 @@ def train(
     )
     print(train_dataset)
 
-    train_sampler = DistributedSampler(train_dataset)
+    train_sampler = dist.get_sampler(train_dataset, shuffle=True)
     train_dataloader = DataLoader(
-        train_sampler,
+        train_dataset,
         shuffle=True,
         batch_size=batch_size,
         pin_memory=True,
         collate_fn=data_collator,
         prefetch_factor=int(batch_size / 8),
         num_workers=cpu_count(),
+        sampler=train_sampler,
     )
 
-    eval_sampler = DistributedSampler(eval_dataset)
+    eval_sampler = dist.get_sampler(eval_dataset, shuffle=False)
     eval_dataloader = DataLoader(
-        eval_sampler,
+        eval_dataset,
         shuffle=False,
         batch_size=batch_size,
         pin_memory=True,
         collate_fn=data_collator,
         prefetch_factor=int(batch_size / 8),
         num_workers=cpu_count(),
+        sampler=eval_sampler,
     )
 
     ppl_eval = Evaluator(
