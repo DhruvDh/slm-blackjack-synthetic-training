@@ -69,6 +69,7 @@ def train(
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    world_size = dist.get_world_size()
 
     tokenizer_file = f"{datafolder}/overall-tokenizer.json"
     tokenizer = PreTrainedTokenizerFast.from_pretrained(
@@ -114,29 +115,51 @@ def train(
     )
     print(train_dataset)
 
-    train_sampler = dist.get_sampler(train_dataset, shuffle=True)
-    train_dataloader = DataLoader(
-        train_dataset,
-        # shuffle=True,
-        batch_size=batch_size,
-        pin_memory=True,
-        collate_fn=data_collator,
-        prefetch_factor=int(batch_size / 8),
-        num_workers=cpu_count(),
-        sampler=train_sampler,
-    )
+    if world_size > 1:
+        train_sampler = dist.get_sampler(train_dataset, shuffle=True)
+        train_dataloader = DataLoader(
+            train_dataset,
+            # shuffle=True,
+            batch_size=batch_size,
+            pin_memory=True,
+            collate_fn=data_collator,
+            prefetch_factor=int(batch_size / 8),
+            num_workers=int(cpu_count() / 2),
+            sampler=train_sampler,
+        )
+    else:
+        train_dataloader = DataLoader(
+            train_dataset,
+            shuffle=True,
+            batch_size=batch_size,
+            pin_memory=True,
+            collate_fn=data_collator,
+            prefetch_factor=int(batch_size / 8),
+            num_workers=int(cpu_count() / 2),
+        )
 
-    eval_sampler = dist.get_sampler(eval_dataset, shuffle=False)
-    eval_dataloader = DataLoader(
-        eval_dataset,
-        # shuffle=False,
-        batch_size=batch_size,
-        pin_memory=True,
-        collate_fn=data_collator,
-        prefetch_factor=int(batch_size / 8),
-        num_workers=cpu_count(),
-        sampler=eval_sampler,
-    )
+    if world_size > 1:
+        eval_sampler = dist.get_sampler(eval_dataset, shuffle=False)
+        eval_dataloader = DataLoader(
+            eval_dataset,
+            # shuffle=False,
+            batch_size=batch_size,
+            pin_memory=True,
+            collate_fn=data_collator,
+            prefetch_factor=int(batch_size / 8),
+            num_workers=int(cpu_count() / 2),
+            sampler=eval_sampler,
+        )
+    else:
+        eval_dataloader = DataLoader(
+            eval_dataset,
+            shuffle=False,
+            batch_size=batch_size,
+            pin_memory=True,
+            collate_fn=data_collator,
+            prefetch_factor=int(batch_size / 8),
+            num_workers=int(cpu_count() / 2),
+        )
 
     ppl_eval = Evaluator(
         label="ppl_eval",
@@ -183,9 +206,13 @@ if __name__ == "__main__":
     # os.environ["MASTER_ADDR"] = "127.0.0.1"
     # os.environ["MASTER_PORT"] = "29500"
     # os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    torch.distributed.init_process_group()
+    if dist.get_world_size() > 1:
+        torch.distributed.init_process_group(backend="nccl")
+    else:
+        torch.distributed.init_process_group()
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
     import argparse
 
     parser = argparse.ArgumentParser(description="Train a language model.")
