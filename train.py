@@ -24,11 +24,11 @@ def create_sliding_windows(tokenizer, context_window=8192):
 
         for text in examples["text"]:
             encoded_text = tokenizer.encode(text)
+            window_size = min(context_window, len(encoded_text))
 
-            for window_size in range(1, min(len(encoded_text), context_window) + 1):
-                for i in range(len(encoded_text) - window_size):
-                    input_ids.append(encoded_text[i : i + window_size])
-                    labels.append(encoded_text[i + window_size])
+            for i in range(len(encoded_text) - window_size):
+                input_ids.append(encoded_text[i : i + window_size])
+                labels.append(encoded_text[i + window_size])
 
         return {"input_ids": input_ids, "labels": labels}
 
