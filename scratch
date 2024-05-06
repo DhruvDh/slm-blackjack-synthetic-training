@@ -4,6 +4,8 @@ python train.py --model_name llama --run_name icl-run-10 --eval_interval 6000ba 
 
 python eval.py --checkpoint_path path/to/checkpoint --jsonl_files file1.jsonl file2.jsonl --output_dir path/to/output
 
- python eval.py --checkpoint_path checkpoints/checkpoints/final-run-3/hf-ep0-ba6000-rank0/checkpoints/final-run-3/ep0-ba6000-rank0-hf  --jsonl_file data-final/eval-icl/eval_suits_2_cards_6_decks_1.jsonl --output_dir results --context_window 4096 --batch_size 1
+python eval.py --checkpoint_path checkpoints/checkpoints/final-run-3/hf-ep0-ba6000-rank0/checkpoints/final-run-3/ep0-ba6000-rank0-hf --jsonl_file data-final/eval-icl/eval_suits_2_cards_6_decks_1.jsonl --output_dir results --context_window 4096 --batch_size 1
 
-composer -n 1 train.py --run_name FINAL-1 --eval_interval 6000ba --learning_rate 1e-4 --batch_size 8 --context_window 8192 --datafolder data-final
+composer -n 4 train.py --run_name FINAL-2 --eval_interval 6000ba --learning_rate 1e-4 --batch_size 32 --context_window 8192 --datafolder data-final
+
+srun --job-name=test-nvidia --time=24:00:00 --nodes=1 --ntasks-per-node=1 --mem=64G --partition=GPU --gres=gpu:A40:4 --pty singularity shell --nv nvidia.sif

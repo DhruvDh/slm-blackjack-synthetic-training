@@ -1,6 +1,7 @@
 import os
 import torch
 from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from multiprocessing import cpu_count
 from transformers import PreTrainedTokenizerFast, DataCollatorForLanguageModeling
 from datasets import load_dataset
@@ -114,8 +115,9 @@ def train(
     )
     print(train_dataset)
 
+    train_sampler = DistributedSampler(train_dataset)
     train_dataloader = DataLoader(
-        train_dataset,
+        train_sampler,
         shuffle=True,
         batch_size=batch_size,
         pin_memory=True,
@@ -124,8 +126,9 @@ def train(
         num_workers=cpu_count(),
     )
 
+    eval_sampler = DistributedSampler(eval_dataset)
     eval_dataloader = DataLoader(
-        eval_dataset,
+        eval_sampler,
         shuffle=False,
         batch_size=batch_size,
         pin_memory=True,
