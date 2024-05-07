@@ -12,3 +12,10 @@ composer -n 1 train.py --run_name FINAL-4096 --eval_interval 6000ba --learning_r
 composer -n 1 train.py --run_name FINAL-2048 --eval_interval 6000ba --learning_rate 1e-4 --batch_size 8 --context_window 2048 --datafolder data-final
 
 srun --job-name=test-nvidia --time=24:00:00 --nodes=1 --ntasks-per-node=1 --mem=64G --partition=GPU --gres=gpu:A40:4 --pty singularity shell --nv nvidia.sif
+
+
+srun --job-name=eval_task --output=eval_task_%A_%a.out --error=eval_task_%A_%a.err --nodes=1 --ntasks-per-node=1 --cpus-per-task=8 --mem=32G --gres=gpu:1 --time=02:00:00 --partition=GPU --array=0-0%1 bash -c "source ~/.bashrc && conda init && conda activate pytorch && python new-eval.py --checkpoint_path '$checkpoint_file' --jsonl_file '$jsonl_file' --output_dir '$output_dir' --context_window '$context_window' --batch_size '$batch_size' --use_gpu"
+
+srun --job-name=eval_task --output=eval_task_%j.out --error=eval_task_%j.err --nodes=1 --ntasks-per-node=1 --cpus-per-task=8 --mem=32G --gres=gpu:1 --time=02:00:00 --partition=GPU bash -c "source ~/.bashrc && conda init && conda activate pytorch && python new-eval.py --checkpoint_path 'checkpoints/FINAL-2048/latest-rank0.pt' --jsonl_file 'data-final/eval-icl/eval_suits_2_cards_10_decks_1.jsonl' --output_dir 'test_results' --context_window 2048 --batch_size 1 --use_gpu"
+
+srun --job-name=eval_task --output=eval_task_%j.out --error=eval_task_%j.err --nodes=1 --ntasks-per-node=1 --cpus-per-task=8 --mem=32G --gres=gpu:1 --time=02:00:00 --partition=GPU singularity exec --nv nvidia.sif bash -c ". ~/.bashrc && conda activate pytorch && python new-eval.py --checkpoint_path 'checkpoints/FINAL-2048/latest-rank0.pt' --jsonl_file 'data-final/eval-icl/eval_suits_2_cards_10_decks_1.jsonl' --output_dir 'test_results' --context_window 2048 --batch_size 1 --use_gpu"

@@ -140,10 +140,10 @@ def inference(
     # create output directory if it does not exist
     os.makedirs(output_dir, exist_ok=True)
     last_checkpoint_folder = os.path.basename(checkpoint_path)
-    os.makedirs(f"{output_dir}/{last_checkpoint_folder}", exist_ok=True)
     output_dir = os.path.join(
         output_dir, f"FINAL-{context_window}", last_checkpoint_folder
     )
+    os.makedirs(output_dir, exist_ok=True)
 
     # Save results to a JSONL file
     jsonl_file_name = os.path.basename(jsonl_file.replace(".jsonl", ""))
@@ -155,6 +155,8 @@ def inference(
     with open(jsonl_file, "w") as f:
         for result in results:
             f.write(json.dumps(result) + "\n")
+
+    return jsonl_file
 
 
 def compute_metrics(jsonl_file, output_dir, context_window):
@@ -228,6 +230,7 @@ def compute_metrics(jsonl_file, output_dir, context_window):
     stats["accuracy_fits"] = accuracy_fits
     stats["accuracy_exceeds"] = accuracy_exceeds
 
+    output_dir = os.path.dirname(jsonl_file)
     os.makedirs(output_dir, exist_ok=True)
 
     # Save evaluation results to a CSV file
@@ -294,19 +297,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    inference(
+    jsonl_file = inference(
         args.checkpoint_path,
         args.jsonl_file,
         args.output_dir,
         args.context_window,
         args.batch_size,
         args.use_gpu,
-    )
-
-    jsonl_file = os.path.join(
-        args.output_dir,
-        os.path.basename(args.checkpoint_path),
-        f"inference_results_{os.path.basename(args.jsonl_file.replace('.jsonl', ''))}.jsonl",
     )
 
     compute_metrics(jsonl_file, args.output_dir, args.context_window)
