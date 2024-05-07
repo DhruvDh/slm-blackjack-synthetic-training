@@ -9,6 +9,7 @@ output_dir="results" batch_size=1
 export TOKENIZERS_PARALLELISM="false"
 
 processed_file="processed_checkpoints.txt"
+touch "$processed_file" # Create the processed_file if it doesn't exist
 
 for checkpoint_dir in "${checkpoint_dirs[@]}"; do
   context_window="${checkpoint_dir##*-}"
