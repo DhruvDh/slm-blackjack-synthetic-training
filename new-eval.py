@@ -141,7 +141,9 @@ def inference(
     os.makedirs(output_dir, exist_ok=True)
     last_checkpoint_folder = os.path.basename(checkpoint_path)
     os.makedirs(f"{output_dir}/{last_checkpoint_folder}", exist_ok=True)
-    output_dir = os.path.join(output_dir, last_checkpoint_folder)
+    output_dir = os.path.join(
+        output_dir, f"FINAL-{context_window}", last_checkpoint_folder
+    )
 
     # Save results to a JSONL file
     jsonl_file_name = os.path.basename(jsonl_file.replace(".jsonl", ""))
@@ -231,7 +233,7 @@ def compute_metrics(jsonl_file, output_dir, context_window):
     # Save evaluation results to a CSV file
     csv_file = os.path.join(
         output_dir,
-        f"eval_results_{os.path.basename(jsonl_file.replace('.jsonl', ''))}.csv",
+        f"eval_results_{os.path.basename(jsonl_file.replace('.jsonl', ''))}_{context_window}.csv",
     )
 
     with open(csv_file, "w") as f:
@@ -249,7 +251,7 @@ def compute_metrics(jsonl_file, output_dir, context_window):
     # save figure to output directory
     fig_generated_stars_file = os.path.join(
         output_dir,
-        f"generated_star_counts_{os.path.basename(jsonl_file.replace('.jsonl', ''))}.png",
+        f"generated_star_counts_{os.path.basename(jsonl_file.replace('.jsonl', ''))}_{context_window}.png",
     )
 
     fig_generated_stars.savefig(fig_generated_stars_file)
