@@ -8,6 +8,8 @@ from transformers import (
     RecurrentGemmaForCausalLM,
     MambaConfig,
     MambaForCausalLM,
+    NystromformerConfig,
+    NystromformerForCausalLM,
 )
 from composer.models import HuggingFaceModel
 from composer.metrics.nlp import LanguagePerplexity
@@ -89,6 +91,28 @@ def create_model(tokenizer, context_window, device, model_type):
             use_cache=True,
         )
         model_class = MambaForCausalLM
+    elif model_type == "nyst":
+        config = NystromformerConfig(
+            vocab_size=tokenizer.vocab_size,
+            hidden_size=512,
+            num_hidden_layers=15,
+            num_attention_heads=2,
+            intermediate_size=512,
+            hidden_act="gelu_new",
+            # hidden_dropout_prob=0.1,
+            # attention_probs_dropout_prcob=0.1,
+            max_position_embeddings=context_window,
+            type_vocab_size=2,
+            segment_means_seq_len=64,
+            num_landmarks=64,
+            conv_kernel_size=65,
+            inv_coeff_init_option=False,
+            layer_norm_eps=1e-5,
+            pad_token_id=tokenizer.pad_token_id,
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+        )
+        model_class = NystromformerForCausalLM
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
