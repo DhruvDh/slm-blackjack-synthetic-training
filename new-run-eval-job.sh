@@ -21,7 +21,7 @@ export TOKENIZERS_PARALLELISM="false"
 processed_file="processed_checkpoints.txt"
 touch "$processed_file" # Create the processed_file if it doesn't exist
 
-eval_batches=(3000 6000 9000)
+eval_batches=(1500 3000 4500 6000 7500 9000 10500 12000 13500 15000)
 
 for checkpoint_dir in "${checkpoint_dirs[@]}"; do
   context_window="${checkpoint_dir##*-}"
