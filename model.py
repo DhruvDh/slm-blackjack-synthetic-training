@@ -70,8 +70,6 @@ def create_model(tokenizer, context_window, device, model_type):
         use_logits=True,
     )
     model.to(device)
-    if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
-        model.to(torch.bfloat16)
     model.train()
 
     return model
