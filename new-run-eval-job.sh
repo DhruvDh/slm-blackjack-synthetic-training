@@ -20,6 +20,8 @@ output_dir="results"
 batch_size=1
 export TOKENIZERS_PARALLELISM="false"
 
+module load singularity
+
 processed_file="processed_checkpoints.txt"
 touch "$processed_file" # Create the processed_file if it doesn't exist
 
