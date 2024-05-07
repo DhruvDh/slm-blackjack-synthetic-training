@@ -66,6 +66,7 @@ def train(
     batch_size,
     context_window,
     datafolder,
+    model_type="llama",
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -167,7 +168,7 @@ def train(
         metric_names=["LanguagePerplexity"],
     )
 
-    model = create_model(tokenizer, context_window, device)
+    model = create_model(tokenizer, context_window, device, model_type)
     optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=learning_rate)
 
     trainer = Trainer(
@@ -186,7 +187,7 @@ def train(
         autoresume=True,
         precision="amp_bf16",
         console_log_interval=eval_interval,
-        callbacks=[CheckpointConverter(run_name)],
+        # callbacks=[CheckpointConverter(run_name)],
         loggers=[
             FileLogger(f"checkpoints/{run_name}_logs.txt"),
             TensorboardLogger(),
@@ -247,6 +248,14 @@ if __name__ == "__main__":
         help="The path to the data folder containing the training and evaluation data.",
     )
 
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        default="llama",
+        choices=["llama", "rwkv", "recurrent_gemma"],
+        help="The type of model to use (llama or rwkv or recurrent_gemma).",
+    )
+
     args = parser.parse_args()
 
     train(
@@ -256,4 +265,5 @@ if __name__ == "__main__":
         args.batch_size,
         args.context_window,
         args.datafolder,
+        args.model_type,
     )
