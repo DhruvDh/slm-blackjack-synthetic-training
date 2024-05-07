@@ -185,7 +185,7 @@ def train(
         device="gpu",
         run_name=run_name,
         autoresume=True,
-        precision="amp_bf16" if model_type == "llama" else "amp_fp16",
+        precision="amp_bf16" if model_type == "llama" else "fp32",
         console_log_interval=eval_interval,
         # callbacks=[CheckpointConverter(run_name)],
         loggers=[
