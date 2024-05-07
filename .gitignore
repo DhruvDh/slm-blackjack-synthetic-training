@@ -1,3 +1,7 @@
+queue.txt
+tokenizer-save-*
+test_results/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -165,3 +169,5 @@ checkpoints
 data-final
 checkpoints.zip
 tensorboard_logs
+*err
+*out
