@@ -1,0 +1,16 @@
+metric,value
+generated_star_counts/10,28.28282828282828
+generated_star_counts/6,5.555555555555555
+generated_star_counts/0,13.131313131313133
+generated_star_counts/3,8.585858585858585
+generated_star_counts/4,6.0606060606060606
+generated_star_counts/7,8.585858585858585
+generated_star_counts/8,9.090909090909092
+generated_star_counts/5,8.080808080808081
+generated_star_counts/9,6.0606060606060606
+generated_star_counts/1,2.525252525252525
+generated_star_counts/2,4.040404040404041
+accuracy,0.6212121212121212
+mean_star_difference,0.5858585858585859
+accuracy_fits,0.6243654822335025
+accuracy_exceeds,0.0

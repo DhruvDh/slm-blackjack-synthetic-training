@@ -1,0 +1,16 @@
+metric,value
+generated_star_counts/0,19.2
+generated_star_counts/1,4.0
+generated_star_counts/6,6.4
+generated_star_counts/9,6.4
+generated_star_counts/8,5.6000000000000005
+generated_star_counts/4,8.0
+generated_star_counts/10,16.400000000000002
+generated_star_counts/5,8.799999999999999
+generated_star_counts/7,8.4
+generated_star_counts/2,7.199999999999999
+generated_star_counts/3,9.6
+accuracy,0.612
+mean_star_difference,0.52
+accuracy_fits,0.6581632653061225
+accuracy_exceeds,0.4444444444444444
