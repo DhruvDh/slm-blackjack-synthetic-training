@@ -23,21 +23,26 @@ touch "$processed_file" # Create the processed_file if it doesn't exist
 
 eval_batches=(1500 3000 4500 6000 7500 9000 10500 12000 13500 15000)
 
-# Calculate the total number of combinations
-total_combinations=$((${#checkpoint_dirs[@]} * ${#eval_batches[@]}))
-
 # Set the number of simultaneously running tasks
-max_simultaneous_tasks=6
+max_simultaneous_tasks=15
 
-# Set the SLURM array based on the total number of combinations
-#SBATCH --array=0-$((total_combinations - 1))%$max_simultaneous_tasks
+# Generate the array of job indices
+job_indices=()
+for ((i = 0; i < ${#checkpoint_dirs[@]}; i++)); do
+  for ((j = 0; j < ${#eval_batches[@]}; j++)); do
+    job_indices+=("$i $j")
+  done
+done
 
-# Calculate the array index for the current job
-job_index=$SLURM_ARRAY_TASK_ID
+# Set the SLURM array based on the number of job indices
+#SBATCH --array=0-$((${#job_indices[@]} - 1))%$max_simultaneous_tasks
 
-# Calculate the checkpoint directory index and batch index
-checkpoint_dir_index=$((job_index / ${#eval_batches[@]}))
-batch_index=$((job_index % ${#eval_batches[@]}))
+# Get the current job index
+job_index=${job_indices[$SLURM_ARRAY_TASK_ID]}
+
+# Extract the checkpoint directory index and batch index from the job index
+checkpoint_dir_index=$(echo $job_index | cut -d' ' -f1)
+batch_index=$(echo $job_index | cut -d' ' -f2)
 
 checkpoint_dir="${checkpoint_dirs[checkpoint_dir_index]}"
 batch="${eval_batches[batch_index]}"
