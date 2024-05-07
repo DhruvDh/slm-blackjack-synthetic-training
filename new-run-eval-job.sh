@@ -23,22 +23,38 @@ touch "$processed_file" # Create the processed_file if it doesn't exist
 
 eval_batches=(1500 3000 4500 6000 7500 9000 10500 12000 13500 15000)
 
-for checkpoint_dir in "${checkpoint_dirs[@]}"; do
-  context_window="${checkpoint_dir##*-}"
-  for batch in "${eval_batches[@]}"; do
-    checkpoint_file="$checkpoint_dir/ep0-ba${batch}-rank0.pt"
-    if [[ -f "$checkpoint_file" ]]; then
-      for jsonl_file in data-final/eval-icl/*.jsonl; do
-        if ! grep -q "$checkpoint_file,$jsonl_file" "$processed_file"; then
-          echo "Evaluating $jsonl_file with $checkpoint_file:"
-          srun bash -c "source ~/.bashrc && conda init && conda activate pytorch && python new-eval.py --checkpoint_path '$checkpoint_file' --jsonl_file '$jsonl_file' --output_dir '$output_dir' --context_window '$context_window' --batch_size '$batch_size' --use_gpu"
+# Calculate the total number of combinations
+total_combinations=$((${#checkpoint_dirs[@]} * ${#eval_batches[@]}))
 
-          # Write the processed checkpoint and jsonl file to the processed_file
-          echo "$checkpoint_file,$jsonl_file" >>"$processed_file"
+# Set the number of simultaneously running tasks
+max_simultaneous_tasks=6
 
-          rm -rf tokenizer-save-dir-*
-        fi
-      done
+# Set the SLURM array based on the total number of combinations
+#SBATCH --array=0-$((total_combinations - 1))%$max_simultaneous_tasks
+
+# Calculate the array index for the current job
+job_index=$SLURM_ARRAY_TASK_ID
+
+# Calculate the checkpoint directory index and batch index
+checkpoint_dir_index=$((job_index / ${#eval_batches[@]}))
+batch_index=$((job_index % ${#eval_batches[@]}))
+
+checkpoint_dir="${checkpoint_dirs[checkpoint_dir_index]}"
+batch="${eval_batches[batch_index]}"
+
+context_window="${checkpoint_dir##*-}"
+checkpoint_file="$checkpoint_dir/ep0-ba${batch}-rank0.pt"
+
+if [[ -f "$checkpoint_file" ]]; then
+  for jsonl_file in data-final/eval-icl/*.jsonl; do
+    if ! grep -q "$checkpoint_file,$jsonl_file" "$processed_file"; then
+      echo "Evaluating $jsonl_file with $checkpoint_file:"
+      srun bash -c "source ~/.bashrc && conda init && conda activate pytorch && python new-eval.py --checkpoint_path '$checkpoint_file' --jsonl_file '$jsonl_file' --output_dir '$output_dir' --context_window '$context_window' --batch_size '$batch_size' --use_gpu"
+
+      # Write the processed checkpoint and jsonl file to the processed_file
+      echo "$checkpoint_file,$jsonl_file" >>"$processed_file"
+
+      rm -rf tokenizer-save-dir-*
     fi
   done
-done
+fi
