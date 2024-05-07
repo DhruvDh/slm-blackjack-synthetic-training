@@ -221,7 +221,7 @@ def compute_metrics(jsonl_file, output_dir, context_window):
     accuracy_exceeds = (
         correct_predictions_exceeds / total_predictions_exceeds
         if total_predictions_exceeds > 0
-        else 0
+        else None
     )
 
     print(f"Accuracy (fits within context window): {accuracy_fits:.4f}")
@@ -242,7 +242,10 @@ def compute_metrics(jsonl_file, output_dir, context_window):
     with open(csv_file, "w") as f:
         f.write("metric,value\n")
         for metric, value in stats.items():
-            f.write(f"{metric},{value}\n")
+            if value is None:
+                f.write(f"{metric},N/A\n")
+            else:
+                f.write(f"{metric},{value}\n")
 
     # Create matplotlib figure for generated star counts
     fig_generated_stars = plt.figure(figsize=(7, 5))
