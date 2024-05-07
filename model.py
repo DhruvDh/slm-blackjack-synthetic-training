@@ -6,8 +6,8 @@ from transformers import (
     RwkvForCausalLM,
     RecurrentGemmaConfig,
     RecurrentGemmaForCausalLM,
-    MambaConfig,
-    MambaForCausalLM,
+    # MambaConfig,
+    # MambaForCausalLM,
 )
 from composer.models import HuggingFaceModel
 from composer.metrics.nlp import LanguagePerplexity
@@ -62,33 +62,33 @@ def create_model(tokenizer, context_window, device, model_type):
             bos_token_id=tokenizer.bos_token_id,
         )
         model_class = RecurrentGemmaForCausalLM
-    elif model_type == "mamba":
-        config = MambaConfig(
-            vocab_size=tokenizer.vocab_size,
-            hidden_size=512,
-            state_size=16,
-            num_hidden_layers=30,
-            layer_norm_epsilon=1e-5,
-            pad_token_id=tokenizer.pad_token_id,
-            bos_token_id=tokenizer.bos_token_id,
-            eos_token_id=tokenizer.eos_token_id,
-            expand=2,
-            conv_kernel=4,
-            use_bias=False,
-            use_conv_bias=True,
-            hidden_act="silu",
-            initializer_range=0.1,
-            residual_in_fp32=True,
-            time_step_rank="auto",
-            time_step_scale=1.0,
-            time_step_min=0.001,
-            time_step_max=0.1,
-            time_step_init_scheme="random",
-            time_step_floor=0.0001,
-            rescale_prenorm_residual=False,
-            use_cache=True,
-        )
-        model_class = MambaForCausalLM
+    # elif model_type == "mamba":
+    #     config = MambaConfig(
+    #         vocab_size=tokenizer.vocab_size,
+    #         hidden_size=512,
+    #         state_size=16,
+    #         num_hidden_layers=30,
+    #         layer_norm_epsilon=1e-5,
+    #         pad_token_id=tokenizer.pad_token_id,
+    #         bos_token_id=tokenizer.bos_token_id,
+    #         eos_token_id=tokenizer.eos_token_id,
+    #         expand=2,
+    #         conv_kernel=4,
+    #         use_bias=False,
+    #         use_conv_bias=True,
+    #         hidden_act="silu",
+    #         initializer_range=0.1,
+    #         residual_in_fp32=True,
+    #         time_step_rank="auto",
+    #         time_step_scale=1.0,
+    #         time_step_min=0.001,
+    #         time_step_max=0.1,
+    #         time_step_init_scheme="random",
+    #         time_step_floor=0.0001,
+    #         rescale_prenorm_residual=False,
+    #         use_cache=True,
+    #     )
+    #     model_class = MambaForCausalLM
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 

@@ -11,10 +11,13 @@ export TOKENIZERS_PARALLELISM="false"
 processed_file="processed_checkpoints.txt"
 touch "$processed_file" # Create the processed_file if it doesn't exist
 
+eval_batches=(3000 6000 9000)
+
 for checkpoint_dir in "${checkpoint_dirs[@]}"; do
   context_window="${checkpoint_dir##*-}"
-  for checkpoint_file in "$checkpoint_dir"/*.pt; do
-    if [[ $checkpoint_file != *"latest-rank0.pt" ]]; then
+  for batch in "${eval_batches[@]}"; do
+    checkpoint_file="$checkpoint_dir/ep0-ba${batch}-rank0.pt"
+    if [[ -f "$checkpoint_file" ]]; then
       for jsonl_file in data-final/eval-icl/*.jsonl; do
         if ! grep -q "$checkpoint_file,$jsonl_file" "$processed_file"; then
           echo "Evaluating $jsonl_file with $checkpoint_file:"
