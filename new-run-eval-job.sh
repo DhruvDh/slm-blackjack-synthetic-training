@@ -4,8 +4,8 @@
 #SBATCH --error=eval_task_%A_%a.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=64G
 #SBATCH --gres=gpu:1
 #SBATCH --time=02:00:00
 #SBATCH --partition=GPU
@@ -16,13 +16,14 @@ checkpoint_dirs=(
   "/users/ddhamani/8156/slm-blackjack-synthetic-training/checkpoints/FINAL-4096"
   "/users/ddhamani/8156/slm-blackjack-synthetic-training/checkpoints/FINAL-8192"
 )
-output_dir="results" batch_size=1
+output_dir="results"
+batch_size=1
 export TOKENIZERS_PARALLELISM="false"
 
 processed_file="processed_checkpoints.txt"
 touch "$processed_file" # Create the processed_file if it doesn't exist
 
-eval_batches=(1500 3000 4500 6000 7500 9000 10500 12000 13500 15000)
+eval_batches=(3000 6000 9000 12000 15000 18000 21000 24000)
 
 # Get the checkpoint directory index and batch index from the array task ID
 checkpoint_dir_index=$((SLURM_ARRAY_TASK_ID / ${#eval_batches[@]}))
@@ -38,7 +39,7 @@ if [[ -f "$checkpoint_file" ]]; then
   for jsonl_file in data-final/eval-icl/*.jsonl; do
     if ! grep -q "$checkpoint_file,$jsonl_file" "$processed_file"; then
       echo "Evaluating $jsonl_file with $checkpoint_file:"
-      srun bash -c "source ~/.bashrc && conda init && conda activate pytorch && python new-eval.py --checkpoint_path '$checkpoint_file' --jsonl_file '$jsonl_file' --output_dir '$output_dir' --context_window '$context_window' --batch_size '$batch_size' --use_gpu"
+      srun singularity exec --nv nvidia.sif bash -c ". ~/.bashrc && conda activate pytorch && python new-eval.py --checkpoint_path '$checkpoint_file' --jsonl_file '$jsonl_file' --output_dir '$output_dir' --context_window '$context_window' --batch_size '$batch_size' --use_gpu"
 
       # Write the processed checkpoint and jsonl file to the processed_file
       echo "$checkpoint_file,$jsonl_file" >>"$processed_file"
