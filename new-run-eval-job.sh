@@ -7,7 +7,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:1
-#SBATCH --time=24:00:00
+#SBATCH --time=02:00:00
+#SBATCH --partition=GPU
 
 checkpoint_dirs=(
   "/users/ddhamani/8156/slm-blackjack-synthetic-training/checkpoints/FINAL-2048"
@@ -34,6 +35,8 @@ for checkpoint_dir in "${checkpoint_dirs[@]}"; do
 
           # Write the processed checkpoint and jsonl file to the processed_file
           echo "$checkpoint_file,$jsonl_file" >>"$processed_file"
+
+          rm -rf tokenizer-save-dir-*
         fi
       done
     fi
