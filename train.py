@@ -252,7 +252,7 @@ if __name__ == "__main__":
         "--model_type",
         type=str,
         default="llama",
-        choices=["llama", "rwkv", "recurrent_gemma", "mamba", "nyst"],
+        choices=["llama", "rwkv", "recurrent_gemma", "mamba"],
         help="The type of model to use (llama or rwkv or recurrent_gemma or mamba).",
     )
 
