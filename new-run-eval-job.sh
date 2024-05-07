@@ -9,7 +9,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=02:00:00
 #SBATCH --partition=GPU
-#SBATCH --array=0-29%15
+#SBATCH --array=0-134%7
 
 checkpoint_dirs=(
   "/users/ddhamani/8156/slm-blackjack-synthetic-training/checkpoints/FINAL-2048"
