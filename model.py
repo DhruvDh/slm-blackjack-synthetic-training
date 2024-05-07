@@ -67,7 +67,7 @@ def create_model(tokenizer, context_window, device, model_type):
             vocab_size=tokenizer.vocab_size,
             hidden_size=512,
             state_size=16,
-            num_hidden_layers=15,
+            num_hidden_layers=30,
             layer_norm_epsilon=1e-5,
             pad_token_id=tokenizer.pad_token_id,
             bos_token_id=tokenizer.bos_token_id,
